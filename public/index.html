@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Dev Card Generator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            background: linear-gradient(135deg, #58a6ff 0%, #79c0ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            font-size: 16px;
+            color: #8b949e;
+            font-weight: 400;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 32px;
+            position: relative;
+            z-index: 1;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            background: #161b22;
+            color: #c9d1d9;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        input[type="text"]:hover {
+            border-color: #404854;
+            background: #0d1117;
+        }
+
+        input[type="text"]:focus {
+            border-color: #58a6ff;
+            background: #0d1117;
+            box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.1);
+        }
+
+        input[type="text"]::placeholder {
+            color: #6e7681;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: 1px solid #238636;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #238636 0%, #2ea043 100%);
+            color: #ffffff;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            outline: none;
+            white-space: nowrap;
+            position: relative;
+            overflow: hidden;
+        }
+
+        button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.1);
+            transition: left 0.3s ease;
+            z-index: -1;
+        }
+
+        button:hover::before {
+            left: 100%;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #2ea043 0%, #33b835 100%);
+            box-shadow: 0 8px 16px rgba(46, 160, 67, 0.3);
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #21262d;
+            border-color: #30363d;
+            color: #6e7681;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .loading {
+            display: none;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .skeleton {
+            background: linear-gradient(90deg, #161b22 25%, #21262d 50%, #161b22 75%);
+            background-size: 200% 100%;
+            animation: loading 2s infinite;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        @keyframes loading {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        .skeleton-line {
+            height: 16px;
+            margin-bottom: 12px;
+        }
+
+        .skeleton-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+        }
+
+        .result-area {
+            margin-top: 32px;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.4s ease;
+        }
+
+        .result-area.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .card-container {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+
+        .share-section {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .share-btn {
+            flex: 1;
+            padding: 10px 16px;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            background: #0d1117;
+            color: #58a6ff;
+            font-family: 'Inter', sans-serif;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .share-btn:hover {
+            border-color: #58a6ff;
+            background: #0d1117;
+            box-shadow: 0 4px 8px rgba(88, 166, 255, 0.2);
+        }
+
+        .share-btn.copied {
+            background: #238636;
+            border-color: #238636;
+            color: #ffffff;
+        }
+
+        .error-message {
+            background: rgba(248, 81, 73, 0.1);
+            border: 1px solid #da3633;
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: #f85149;
+            margin-top: 20px;
+            display: none;
+            animation: slideIn 0.3s ease;
+        }
+
+        .error-message.show {
+            display: block;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .copy-feedback {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #238636;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+        }
+
+        .copy-feedback.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        @media (max-width: 640px) {
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .input-group {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+
+            .share-section {
+                flex-direction: column;
+            }
+
+            .share-btn {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>GitHub Dev Card Generator</h1>
+            <p>Enter any public GitHub username</p>
+        </div>
+
+        <div class="input-group">
+            <input 
+                type="text" 
+                id="usernameInput" 
+                placeholder="e.g., torvalds, gvanrossum, octocat"
+                autocomplete="off"
+            >
+            <button id="generateBtn">Generate Card</button>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="skeleton skeleton-avatar"></div>
+            <div class="skeleton skeleton-line" style="width: 70%;"></div>
+            <div class="skeleton skeleton-line" style="width: 90%;"></div>
+            <div class="skeleton skeleton-line" style="width: 60%;"></div>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="result-area" id="resultArea">
+            <div class="card-container" id="cardContainer"></div>
+            <div class="share-section">
+                <button class="share-btn" id="shareBtn">📋 Copy Card Link</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="copy-feedback" id="copyFeedback">Copied to clipboard!</div>
+
+    <script>
+        const usernameInput = document.getElementById('usernameInput');
+        const generateBtn = document.getElementById('generateBtn');
+        const loading = document.getElementById('loading');
+        const errorMessage = document.getElementById('errorMessage');
+        const resultArea = document.getElementById('resultArea');
+        const cardContainer = document.getElementById('cardContainer');
+        const shareBtn = document.getElementById('shareBtn');
+        const copyFeedback = document.getElementById('copyFeedback');
+
+        let currentUsername = '';
+        let cardUrl = '';
+
+        // Get backend URL from environment or use Railway URL directly
+        const BACKEND_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:8080'
+            : 'https://github-card-generator-production.up.railway.app';
+        
+        const API_ENDPOINT = `${BACKEND_URL}/generate`;
+
+        // Generate card on button click
+        generateBtn.addEventListener('click', generateCard);
+
+        // Generate card on Enter key
+        usernameInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                generateCard();
+            }
+        });
+
+        async function generateCard() {
+            const username = usernameInput.value.trim();
+
+            if (!username) {
+                showError('Please enter a GitHub username');
+                return;
+            }
+
+            currentUsername = username;
+            showLoading();
+            clearError();
+
+            try {
+                generateBtn.disabled = true;
+                const response = await fetch(API_ENDPOINT, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username })
+                });
+
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        showError(`User "${username}" not found. Make sure it's a public GitHub account.`);
+                    } else {
+                        showError(`Error: ${response.statusText}`);
+                    }
+                    hideLoading();
+                    generateBtn.disabled = false;
+                    return;
+                }
+
+                const data = await response.json();
+                
+                // Assume the response contains the HTML card
+                const htmlCard = data.html || data.card || data;
+                
+                displayCard(htmlCard);
+                cardUrl = `${BACKEND_URL}/cards/${username}.html`;
+                hideLoading();
+                generateBtn.disabled = false;
+
+            } catch (error) {
+                console.error('Error generating card:', error);
+                showError('Failed to connect to server. Check your backend URL or network connection.');
+                hideLoading();
+                generateBtn.disabled = false;
+            }
+        }
+
+        function displayCard(htmlCard) {
+            cardContainer.innerHTML = htmlCard;
+            resultArea.classList.add('show');
+        }
+
+        function showLoading() {
+            loading.classList.add('active');
+            resultArea.classList.remove('show');
+        }
+
+        function hideLoading() {
+            loading.classList.remove('active');
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.add('show');
+        }
+
+        function clearError() {
+            errorMessage.classList.remove('show');
+        }
+
+        // Share functionality
+        shareBtn.addEventListener('click', () => {
+            navigator.clipboard.writeText(cardUrl).then(() => {
+                copyFeedback.classList.add('show');
+                shareBtn.classList.add('copied');
+                shareBtn.textContent = '✓ Copied!';
+
+                setTimeout(() => {
+                    copyFeedback.classList.remove('show');
+                    shareBtn.classList.remove('copied');
+                    shareBtn.textContent = '📋 Copy Card Link';
+                }, 2000);
+            }).catch(() => {
+                showError('Failed to copy to clipboard');
+            });
+        });
+
+        // Focus input on load
+        usernameInput.focus();
+    </script>
+</body>
+</html>
