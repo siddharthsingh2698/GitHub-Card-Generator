@@ -344,10 +344,13 @@
         let currentUsername = '';
         let cardUrl = '';
 
-        // Get backend URL from environment or use Railway URL directly
-        const BACKEND_URL = window.location.hostname === 'localhost' 
+        // ⚠️ UPDATE THIS URL after deploying to Railway
+        // Go to your Railway project → your service → Settings → Networking → copy the public domain
+        const RAILWAY_BACKEND_URL = 'https://github-card-generator-production.up.railway.app';
+
+        const BACKEND_URL = window.location.hostname === 'localhost'
             ? 'http://localhost:8080'
-            : 'https://github-card-generator-production.up.railway.app';
+            : RAILWAY_BACKEND_URL;
         
         const API_ENDPOINT = `${BACKEND_URL}/generate`;
 
