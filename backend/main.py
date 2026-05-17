@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException
+import time
+
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -86,39 +87,68 @@ async def generate_card(request: CardRequest):
             detail="Agent service not available. Check backend logs."
         )
     
-    session_id = f"session_{username}"
+    # Use unique session per request to avoid stale conversation history
+    session_id = f"session_{username}_{int(time.time())}"
     user_id = "default_user"
     
     new_message = types.Content(
         role="user",
-        parts=[types.Part(text=f"Generate a dev card for {username}")]
+        parts=[types.Part(text=f"Generate a dev card for GitHub user: {username}. You must call all 4 tools in order: scrape_github, analyze_profile, generate_card_html, save_card.")]
     )
     
     try:
         last_text = ""
-        # We process events to get the final text. 
-        # For a truly streaming API, we would use StreamingResponse, 
-        # but the prompt asks to return the final card URL and HTML.
+        html_from_tool = ""  # capture HTML directly from generate_card_html tool response
+
         async for event in runner.run_async(
             user_id=user_id,
             session_id=session_id,
             new_message=new_message
         ):
-            if event.content and event.author != 'user':
+            # Log every event for debugging
+            print(f"[EVENT] author={event.author} is_final={event.is_final_response()}")
+
+            if event.content:
                 for part in event.content.parts:
-                    if part.text:
+                    if hasattr(part, 'text') and part.text:
                         last_text += part.text
-        
+                        # If the tool returned HTML directly, capture it
+                        text = part.text.strip()
+                        if text.startswith('<') and 'div' in text and len(text) > 200:
+                            print(f"[EVENT] Captured HTML from text part ({len(text)} chars)")
+                            html_from_tool = text
+                    # Capture tool response containing HTML
+                    if hasattr(part, 'function_response') and part.function_response:
+                        fn_name = getattr(part.function_response, 'name', '')
+                        fn_resp = getattr(part.function_response, 'response', {})
+                        print(f"[EVENT] Tool response: {fn_name} -> {str(fn_resp)[:200]}")
+                        if fn_name == 'generate_card_html':
+                            result = fn_resp.get('result') or fn_resp.get('output') or fn_resp.get('content') or ''
+                            if isinstance(result, str) and '<div' in result:
+                                html_from_tool = result
+                                print(f"[EVENT] Captured HTML from generate_card_html ({len(html_from_tool)} chars)")
+
         card_url = f"/static/cards/{username}.html"
         card_path = os.path.join(CARDS_DIR, f"{username}.html")
         
         html_content = ""
+        # First try reading from saved file
         if os.path.exists(card_path):
             with open(card_path, "r", encoding="utf-8") as f:
                 html_content = f.read()
+            print(f"[INFO] Loaded HTML from file ({len(html_content)} chars)")
         
+        # Fallback: use HTML captured directly from tool event
+        if not html_content and html_from_tool:
+            print(f"[INFO] Using HTML captured from tool event (file not saved)")
+            html_content = html_from_tool
+            # Save it ourselves
+            with open(card_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+
         if not html_content:
-            raise HTTPException(status_code=500, detail="Card was not generated. Agent may have failed to call save_card.")
+            print(f"[ERROR] No HTML found. last_text={last_text[:500]}")
+            raise HTTPException(status_code=500, detail="Card was not generated. Agent did not complete all steps.")
 
         return {
             "status": "success",

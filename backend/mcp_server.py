@@ -15,7 +15,7 @@ load_dotenv()
 mcp = FastMCP("GitHubDevCardGenerator")
 
 GITHUB_API_BASE = "https://api.github.com"
-GEMINI_API_KEY = os.getenv("GOOGLE_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 client_genai = None
