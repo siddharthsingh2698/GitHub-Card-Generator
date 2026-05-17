@@ -93,43 +93,96 @@ async def analyze_profile(github_data: dict) -> dict:
 async def generate_card_html(username: str, github_data: dict, analysis: dict) -> str:
     """Generate a self-contained HTML string for the dev card."""
     theme = analysis.get("card_theme", "builder")
-    themes = {
-        "hacker": "background: #0d1117; color: #58a6ff; border: 1px solid #30363d;",
-        "builder": "background: #f6f8fa; color: #24292f; border: 1px solid #d0d7de;",
-        "researcher": "background: #ffffff; color: #1a1a1a; border: 1px solid #eaeaea; font-family: serif;",
-        "designer": "background: linear-gradient(135deg, #6e8efb, #a777e3); color: white; border: none;",
-        "open-source-hero": "background: #f0fff4; color: #22863a; border: 1px solid #28a745;"
-    }
-    style = themes.get(theme, themes["builder"])
-    
-    skills_html = "".join([f'<span style="padding: 2px 8px; margin: 2px; border-radius: 12px; background: rgba(0,0,0,0.1); font-size: 0.8rem;">{s}</span>' for s in analysis.get("top_skills", [])])
-    
-    repos_html = "".join([f'<li><b>{r["name"]}</b> ({r["stars"]}⭐)</li>' for r in github_data.get("top_repos", [])[:3]])
 
-    html = f"""
-    <div style="width: 350px; padding: 20px; border-radius: 15px; font-family: -apple-system, sans-serif; {style}">
-        <div style="display: flex; align-items: center; margin-bottom: 15px;">
-            <img src="{github_data.get('avatar_url')}" style="width: 60px; height: 60px; border-radius: 50%; margin-right: 15px;">
-            <div>
-                <h2 style="margin: 0;">{github_data.get('name')}</h2>
-                <p style="margin: 0; font-size: 0.9rem; opacity: 0.8;">@{username}</p>
-            </div>
-        </div>
-        <p style="font-style: italic; margin-bottom: 10px;">"{analysis.get('developer_vibe')}"</p>
-        <div style="margin-bottom: 15px;">{skills_html}</div>
-        <div style="display: flex; justify-content: space-around; margin-bottom: 15px; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 10px;">
-            <div style="text-align: center;"><b>{github_data.get('public_repos')}</b><br><small>Repos</small></div>
-            <div style="text-align: center;"><b>{github_data.get('followers')}</b><br><small>Followers</small></div>
-        </div>
-        <div style="font-size: 0.9rem;">
-            <b>Top Repos:</b>
-            <ul style="margin: 5px 0; padding-left: 20px;">{repos_html}</ul>
-        </div>
-        <div style="margin-top: 10px; font-size: 0.75rem; text-align: right; opacity: 0.6;">
-            {analysis.get('fun_fact')}
-        </div>
+    # Vibrant gradient per theme
+    gradients = {
+        "hacker":           ("135deg, #0f0c29, #302b63, #24243e", "#a78bfa", "#c4b5fd"),
+        "builder":          ("135deg, #1a1a2e, #16213e, #0f3460", "#60a5fa", "#93c5fd"),
+        "researcher":       ("135deg, #0f2027, #203a43, #2c5364", "#34d399", "#6ee7b7"),
+        "designer":         ("135deg, #4a0072, #7b2ff7, #f107a3", "#f9a8d4", "#fbcfe8"),
+        "open-source-hero": ("135deg, #134e4a, #065f46, #064e3b", "#6ee7b7", "#a7f3d0"),
+    }
+    grad, accent, accent_light = gradients.get(theme, gradients["builder"])
+
+    skills = analysis.get("top_skills", [])
+    skills_html = "".join([
+        f'<span style="display:inline-block;padding:4px 12px;margin:3px;border-radius:100px;'
+        f'background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);'
+        f'font-size:11px;font-weight:600;color:#fff;letter-spacing:0.03em;">{s}</span>'
+        for s in skills
+    ])
+
+    top_repos = github_data.get("top_repos", [])[:3]
+    repos_html = "".join([
+        f'<div style="display:flex;align-items:center;justify-content:space-between;'
+        f'padding:8px 12px;margin-bottom:6px;border-radius:10px;'
+        f'background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);">'
+        f'<span style="font-size:12px;font-weight:600;color:#fff;'
+        f'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:200px;">'
+        f'{r.get("name","")}</span>'
+        f'<span style="font-size:11px;color:{accent_light};white-space:nowrap;margin-left:8px;">'
+        f'⭐ {r.get("stars",0)}'
+        f'{"  · " + r.get("language","") if r.get("language") else ""}</span>'
+        f'</div>'
+        for r in top_repos
+    ])
+
+    avatar   = github_data.get("avatar_url", "")
+    name     = github_data.get("name", username)
+    bio      = github_data.get("bio") or analysis.get("developer_vibe", "")
+    repos_n  = github_data.get("public_repos", 0)
+    followers= github_data.get("followers", 0)
+    fun_fact = analysis.get("fun_fact", "")
+    vibe     = analysis.get("developer_vibe", "")
+
+    html = f"""<div style="width:360px;border-radius:20px;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:linear-gradient({grad});box-shadow:0 25px 60px rgba(0,0,0,0.5),0 0 0 1px rgba(255,255,255,0.08);">
+  <!-- Header strip -->
+  <div style="height:6px;background:linear-gradient(90deg,{accent},{accent_light});"></div>
+
+  <div style="padding:24px;">
+    <!-- Avatar + name -->
+    <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px;">
+      <div style="position:relative;flex-shrink:0;">
+        <img src="{avatar}" style="width:68px;height:68px;border-radius:50%;border:3px solid {accent};display:block;" />
+        <div style="position:absolute;bottom:0;right:0;width:18px;height:18px;border-radius:50%;background:{accent};border:2px solid #1a1a2e;display:flex;align-items:center;justify-content:center;font-size:9px;">✦</div>
+      </div>
+      <div style="min-width:0;">
+        <div style="font-size:18px;font-weight:800;color:#fff;letter-spacing:-0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{name}</div>
+        <div style="font-size:12px;color:{accent};font-weight:600;margin-top:2px;">@{username}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{bio[:60] + "…" if len(bio) > 60 else bio}</div>
+      </div>
     </div>
-    """
+
+    <!-- Vibe quote -->
+    <div style="background:rgba(255,255,255,0.06);border-left:3px solid {accent};border-radius:0 10px 10px 0;padding:10px 14px;margin-bottom:18px;">
+      <div style="font-size:12px;color:rgba(255,255,255,0.7);font-style:italic;line-height:1.5;">"{vibe}"</div>
+    </div>
+
+    <!-- Skills -->
+    <div style="margin-bottom:18px;">{skills_html}</div>
+
+    <!-- Stats -->
+    <div style="display:flex;gap:10px;margin-bottom:18px;">
+      <div style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px;text-align:center;">
+        <div style="font-size:22px;font-weight:800;color:{accent_light};">{repos_n}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.5);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">Repos</div>
+      </div>
+      <div style="flex:1;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:12px;text-align:center;">
+        <div style="font-size:22px;font-weight:800;color:{accent_light};">{followers}</div>
+        <div style="font-size:10px;color:rgba(255,255,255,0.5);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">Followers</div>
+      </div>
+    </div>
+
+    <!-- Top repos -->
+    <div style="margin-bottom:16px;">
+      <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px;">Top Repositories</div>
+      {repos_html}
+    </div>
+
+    <!-- Fun fact -->
+    <div style="font-size:11px;color:rgba(255,255,255,0.35);text-align:center;line-height:1.5;border-top:1px solid rgba(255,255,255,0.07);padding-top:12px;">{fun_fact}</div>
+  </div>
+</div>"""
     return html
 
 @mcp.tool()
