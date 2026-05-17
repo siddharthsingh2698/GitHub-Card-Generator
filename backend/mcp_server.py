@@ -135,7 +135,9 @@ async def generate_card_html(username: str, github_data: dict, analysis: dict) -
 @mcp.tool()
 async def save_card(username: str, html: str) -> str:
     """Save the HTML to static/cards/{username}.html."""
-    path = Path(f"static/cards/{username}.html")
+    # Use absolute path relative to this file so it works regardless of cwd
+    base_dir = Path(__file__).parent
+    path = base_dir / "static" / "cards" / f"{username}.html"
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
         f.write(html)

@@ -1,36 +1,53 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
-from google.adk import Runner
-from google.adk.sessions.in_memory_session_service import InMemorySessionService
-from google.adk.memory.in_memory_memory_service import InMemoryMemoryService
-from google.genai import types
-from agent import github_card_agent
 import os
-import uvicorn
+import sys
+import traceback
+
+# Try to import Google ADK components, but continue if they fail
+try:
+    from google.adk import Runner
+    from google.adk.sessions.in_memory_session_service import InMemorySessionService
+    from google.adk.memory.in_memory_memory_service import InMemoryMemoryService
+    from google.genai import types
+    from agent import github_card_agent
+    AGENT_AVAILABLE = True
+except Exception as e:
+    print(f"Warning: Could not load agent: {e}")
+    traceback.print_exc()
+    AGENT_AVAILABLE = False
 
 app = FastAPI(title="GitHub Dev Card Generator API")
 
-# Enable CORS
+# Enable CORS FIRST, before anything else
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Initialize Services and Runner
-session_service = InMemorySessionService()
-memory_service = InMemoryMemoryService()
-runner = Runner(
-    app_name="github_card_generator",
-    agent=github_card_agent,
-    session_service=session_service,
-    memory_service=memory_service,
-    auto_create_session=True
-)
+# Initialize Services and Runner only if agent is available
+runner = None
+if AGENT_AVAILABLE:
+    try:
+        session_service = InMemorySessionService()
+        memory_service = InMemoryMemoryService()
+        runner = Runner(
+            app_name="github_card_generator",
+            agent=github_card_agent,
+            session_service=session_service,
+            memory_service=memory_service,
+            auto_create_session=True
+        )
+    except Exception as e:
+        print(f"Warning: Could not initialize runner: {e}")
+        traceback.print_exc()
+        runner = None
 
 # Ensure static directories exist
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -46,7 +63,11 @@ class CardRequest(BaseModel):
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy"}
+    return {
+        "status": "healthy",
+        "agent_available": AGENT_AVAILABLE,
+        "runner_initialized": runner is not None
+    }
 
 @app.get("/card/{username}")
 async def get_card(username: str):
@@ -58,6 +79,13 @@ async def get_card(username: str):
 @app.post("/generate")
 async def generate_card(request: CardRequest):
     username = request.username
+    
+    if not runner or not AGENT_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="Agent service not available. Check backend logs."
+        )
+    
     session_id = f"session_{username}"
     user_id = "default_user"
     
@@ -88,6 +116,9 @@ async def generate_card(request: CardRequest):
         if os.path.exists(card_path):
             with open(card_path, "r", encoding="utf-8") as f:
                 html_content = f.read()
+        
+        if not html_content:
+            raise HTTPException(status_code=500, detail="Card was not generated. Agent may have failed to call save_card.")
 
         return {
             "status": "success",
@@ -97,6 +128,7 @@ async def generate_card(request: CardRequest):
         }
     except Exception as e:
         print(f"Error generating card: {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
